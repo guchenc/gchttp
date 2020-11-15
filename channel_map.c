@@ -42,7 +42,7 @@ int chanmap_expand(struct channel_map* chanmap, int slot, int msize)
 }
 
 
-void chanmap_clear(struct channel_map* chanmap)
+void chanmap_cleanup(struct channel_map* chanmap)
 {
     if (chanmap != NULL) {
         if (chanmap->entries != NULL) {

@@ -2,6 +2,7 @@
 #define COMMON_H
 #include "log.h"
 
+#include <assert.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>

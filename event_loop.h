@@ -56,7 +56,7 @@ struct event_loop {
     const char* thread_name;
 };
 
-struct event_loop* event_loop_init(const char* thread_name);
+struct event_loop* event_loop_new(const char* thread_name);
 
 int event_loop_run(struct event_loop* eventLoop);
 
@@ -73,6 +73,8 @@ int event_loop_handle_pending_add(struct event_loop* eventLoop, int fd, struct c
 int event_loop_handle_pending_remove(struct event_loop* eventLoop, int fd, struct channel* chan);
 
 int event_loop_handle_pending_update(struct event_loop* eventLoop, int fd, struct channel* chan);
+
+void event_loop_cleanup(struct event_loop* eventLoop);
 
 /* event_dispather检测到fd上的I/O事件后，调用该方法通知event_loop执行对应事件的相关callback方法，EVENT_READ | EVENT_WRITE等 */
 int channel_event_activate(struct event_loop* eventLoop, int fd, int revent);

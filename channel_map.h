@@ -22,6 +22,6 @@ struct channel_map* chanmap_init();
 int chanmap_expand(struct channel_map* chanmap, int size);
 
 /* 释放映射表及保存channel堆内存 */
-void chanmap_clear(struct channel_map* chanmap);
+void chanmap_cleanup(struct channel_map* chanmap);
 
 #endif

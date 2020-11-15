@@ -1,7 +1,7 @@
 #include "event_loop.h"
 
 /* 由reactor线程调用一次，初始化一个event_loop */
-struct event_loop* event_loop_init(const char* thread_name)
+struct event_loop* event_loop_new(const char* thread_name)
 {
     struct event_loop* eventLoop = malloc(sizeof(struct event_loop));
     if (eventLoop == NULL) goto failed;
@@ -17,7 +17,7 @@ struct event_loop* event_loop_init(const char* thread_name)
     eventLoop->eventDispatcher = &select_dispatcher;
 #else
     eventLoop->eventDispatcher = NULL;
-    printf("OS dosen't support any dispatcher!\n");
+    LOG(LT_FATAL_ERROR, "OS dosen't support any dispatcher!");
     goto failed;
 #endif
     eventLoop->event_dispatcher_data = eventLoop->eventDispatcher->init(eventLoop); 
@@ -182,6 +182,21 @@ int channel_event_activate(struct event_loop* eventLoop, int fd, int event)
     if (event & EVENT_WRITE)
         if (chan->eventWriteCallBack != NULL) chan->eventWriteCallBack(chan->data);
     return 0;
+}
+
+/* not sure, may have problem */
+void event_loop_cleanup(struct event_loop* eventLoop)
+{
+    if (eventLoop == NULL) return;
+    assert(pthread_mutex_trylock(eventLoop->mutex) == 0);   // make sure no thread hold this mutex
+    event_dispatcher->clear();
+    channel_map_cleanup(eventLoop->channelMap);
+    assert(eventLoop->is_handling_pending == 0);
+    pthread_mutex_destroy(&eventLoop->mutex);
+    pthread_cond(&eventLoop->cond);
+    close(eventLoop->socketPair[0]);
+    close(eventLoop->socketPair[1]);
+    if (eventLoop->thread_name != NULL) free(eventLoop->thread_name);
 }
 
 void event_loop_wakeup(struct event_loop* eventLoop)
