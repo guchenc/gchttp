@@ -32,6 +32,8 @@
 #define MAXLINE 4096
 #define BUFFER_SIZE 4096
 
+typedef struct sockaddr SA;
+
 void make_nonblocking(int fd); // 将一个套接字设置为非阻塞
 
 #endif
