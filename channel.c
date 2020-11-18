@@ -1,6 +1,6 @@
 #include "channel.h"
 
-struct channel* channel_create(int fd, int events, event_read_callback eventReadCallBack, event_write_callback eventWriteCallBack, void* data) 
+struct channel* channel_new(int fd, int events, event_read_callback eventReadCallBack, event_write_callback eventWriteCallBack, void* data) 
 {
     struct channel* chan = malloc(sizeof(struct channel));
     if (chan == NULL) return NULL;

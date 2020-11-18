@@ -10,7 +10,7 @@ const char* LOG_LEVEL_STRS[5] = {
     "FATAL"
 };
 
-void server_log(int level, char* file, int line, char* fmt, ...)
+void server_log(int level, char* file, const char* func, int line, char* fmt, ...)
 {
     if (level < LT_DEBUG || level > LT_FATAL_ERROR)
         return;
@@ -27,7 +27,7 @@ void server_log(int level, char* file, int line, char* fmt, ...)
     strftime(t_str, 40, "%Y-%m-%d %H:%M:%S", time_info);
     vsprintf(msg_buff, fmt, ap);
 #ifdef ENABLE_CMDLOG
-        printf("[%5s] %s %s:%-4d %s \n", LOG_LEVEL_STRS[level], t_str, file, line, msg_buff);
+        printf("[%5s] %s in %s %s:%-4d %s \n", LOG_LEVEL_STRS[level], t_str, file, func, line, msg_buff);
 #endif
 #ifdef ENABLE_FILELOG
     if (log_file == NULL) {
@@ -37,7 +37,8 @@ void server_log(int level, char* file, int line, char* fmt, ...)
             return;
         }
     }
-    fprintf(log_file, "[%5s] %s %s in %s:%d\n", LOG_LEVEL_STRS[level], t_str, msg_buff, file, line);
+    /* fprintf(log_file, "[%5s] %s %s in %s:%d\n", LOG_LEVEL_STRS[level], t_str, msg_buff, file, line); */
+    fprintf(log_file, "[%5s] %s in %s %s:%-4d %s \n", LOG_LEVEL_STRS[level], t_str, file, func, line, msg_buff);
 #endif
     va_end(ap);
 }

@@ -3,8 +3,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
+#include <errno.h>
+#include <string.h>
 
-#define LOG(level, format, arg...) server_log(level, __FILE__, __LINE__, format, ##arg)
+#define LOG(level, format, arg...) server_log(level, __FILE__, __func__,  __LINE__, format, ##arg)
+#define LOG_SYSCALL_ERROR() server_log(LT_WARN, __FILE__, __func__,  __LINE__, "%s", strerror(errno))
 
 #define LT_DEBUG 0
 #define LT_INFO 1
@@ -18,6 +21,6 @@
 
 #define LOG_FILE_NAME "gchttp.log"
 
-void server_log(int level, char* file, int line, char* fmt, ...);
+void server_log(int level, char* file, const char* func, int line, char* fmt, ...);
 
 #endif

@@ -17,6 +17,7 @@
 #include <sys/signal.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <sys/time.h> // timeval for select
 #include <sys/types.h>
 #include <time.h> // timespec for pselect

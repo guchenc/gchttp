@@ -29,7 +29,7 @@ struct event_loop* event_loop_new(const char* thread_name)
     eventLoop->pending_head = NULL;
     eventLoop->pending_tail = NULL;
 
-    eventLoop->owner_thread_id = pthread_self();
+    eventLoop->owner_tid = pthread_self();
     pthread_mutex_init(&eventLoop->mutex, NULL);
     pthread_cond_init(&eventLoop->cond, NULL);
     if (socketpair(PF_UNIX, SOCK_STREAM, 0, eventLoop->socketPair) < 0) {
@@ -37,7 +37,7 @@ struct event_loop* event_loop_new(const char* thread_name)
         goto failed;
     }
 
-    struct channel* chan = channel_create(event_loop->socketpair[1], EVENT_READ, handleWakeup, NULL, eventLoop);
+    struct channel* chan = channel_new(event_loop->socketpair[1], EVENT_READ, handleWakeup, NULL, eventLoop);
     if (chan == NULL) goto failed;
     event_loop_add_channel_event(eventLoop, eventLoop->socketpair[1], chan);
 
@@ -60,10 +60,10 @@ static int event_loop_do_channel_event(struct event_loop* eventLoop, int fd, str
     event_loop_channel_buffer_nolock(eventLoop, fd, chan, type);
     pthread_mutex_unlock(&eventLoop->mutex);
 
-    if (evenLoop->owner_thread_id != pthread_self()) {
-        event_loop_wakeup(eventLoop);   // 如果eventloop不属于当前i/o reactor线程，则将对应线程唤醒，要求其立刻处理pending list
-    } else {
+    if (in_owner_thread(eventLoop)) {
         event_loop_handle_pending_channel(eventLoop);
+    } else { // eventloop不属于当前i/o reactor线程，则将对应线程唤醒，要求其立刻处理pending list
+        event_loop_wakeup(eventLoop);   
     }
 }
 
@@ -222,4 +222,14 @@ int event_loop_run(struct event_loop* eventLoop)
         event_loop_handle_pending_channel(eventLoop);
     }
     return 0;
+}
+
+void assertInOwnerThread(struct event_loop* eventLoop)
+{
+    assert(pthread_equal(pthread_self(), eventLoop->owner_tid) != 0);
+}
+
+int in_owner_thread(struct event_loop* eventLoop);
+{
+    return pthread_equal(pthread_self(), eventLoop->owner_tid);
 }

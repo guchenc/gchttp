@@ -47,7 +47,7 @@ struct event_loop {
     struct channel_element* pending_head;
     struct channel_element* pending_tail;
 
-    pthread_t owner_thread_id;
+    pthread_t owner_tid;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 
@@ -78,5 +78,11 @@ void event_loop_cleanup(struct event_loop* eventLoop);
 
 /* event_dispather检测到fd上的I/O事件后，调用该方法通知event_loop执行对应事件的相关callback方法，EVENT_READ | EVENT_WRITE等 */
 int channel_event_activate(struct event_loop* eventLoop, int fd, int revent);
+
+/* 每个reactor线程持有一个独立的event_loop，断言当前线程处理的是自身的event_loop */
+void assertInOwnerThread(struct event_loop* eventLoop);
+
+/* 判断当前处理event_loop的线程是否是其拥有者 */
+int in_owner_thread(struct event_loop* eventLoop);
 
 #endif

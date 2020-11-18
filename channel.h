@@ -20,7 +20,7 @@ struct channel {
 };
 
 /* 创建一个新信道 */
-struct channel* channel_create(int fd, int events, event_read_callback eventReadCallBack, event_write_callback eventWriteCallBack, void* data);
+struct channel* channel_new(int fd, int events, event_read_callback eventReadCallBack, event_write_callback eventWriteCallBack, void* data);
 
 /* 判断一个信道的写事件监听是否开启 */
 int channel_write_event_is_enabled(struct channel* channel);
