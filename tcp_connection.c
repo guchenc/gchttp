@@ -15,7 +15,7 @@ tcp_connection_new(int connFd, struct sockaddr* peerAddr, struct event_loop* eve
     
     tcpConn->eventLoop = eventLoop;
 
-    struct channel* chan = channel_init(connFd, EVENT_READ, handle_tcp_connection_read, handle_tcp_connection_write, tcpConn);
+    struct channel* chan = channel_new(connFd, EVENT_READ, handle_tcp_connection_read, handle_tcp_connection_write, tcpConn);
     if (chan == NULL) goto failed;
     tcpConn->channel = chan;
 

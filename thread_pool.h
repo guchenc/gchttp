@@ -30,4 +30,7 @@ void thread_pool_run(struct thread_pool* threadPool);
  */
 struct event_loop_thread* thread_pool_select_thread(struct thread_pool* threadPool);
 
+/* clean up thread pool */
+void thread_pool_cleanup(struct thread_pool* threadPool);
+
 #endif

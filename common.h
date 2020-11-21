@@ -26,6 +26,7 @@
 #include <sys/epoll.h>
 #endif
 
+#define SERVER_NAME_MAXLEN 32
 #define SERVER_PORT 8080
 #define LISTENQ 1024
 #define UNIXSTR_PATH "/var/lib/unixstream.sock"

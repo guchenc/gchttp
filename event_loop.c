@@ -60,6 +60,7 @@ static int event_loop_do_channel_event(struct event_loop* eventLoop, int fd, str
     event_loop_channel_buffer_nolock(eventLoop, fd, chan, type);
     pthread_mutex_unlock(&eventLoop->mutex);
 
+    /* serial lock-free */
     if (in_owner_thread(eventLoop)) {
         event_loop_handle_pending_channel(eventLoop);
     } else { // eventloop不属于当前i/o reactor线程，则将对应线程唤醒，要求其立刻处理pending list
@@ -210,12 +211,14 @@ int handle_wakeup(void* data)
 
 }
 
-/* 无线循环的事件分发器 */
+/* infinite loop for event dispatcher */
 int event_loop_run(struct event_loop* eventLoop)
 {
     struct event_dispatcher* eventDispatcher = eventLoop->eventDispatcher;
     struct timval timeout;
     timeout.tv_sec = DISPATCH_TIMEOUT_SEC;
+
+    eventLoop->status = EVENT_LOOP_RUNNING;
 
     while (eventLoop->status != EVENT_LOOP_OVER) {
         eventDispatcher->dispatch(eventLoop, &timeout);

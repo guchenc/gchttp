@@ -49,3 +49,9 @@ struct event_loop_thread* thread_pool_select_thread(struct thread_pool* threadPo
     threadPool->next = (selected + 1) % threadPool->nthread;
     return &threadPool->threads[selected];
 }
+
+void thread_pool_cleanup(struct thread_pool* threadPool)
+{
+    if (threadPool == NULL) return;
+    // TODO: how to deal with thread
+}
