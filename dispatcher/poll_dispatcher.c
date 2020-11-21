@@ -1,5 +1,6 @@
 #include "event_loop.h"
 #include <sys/poll.h>
+
 #define INIT_POLL_SIZE 1024
 
 struct poll_dispatcher_data {
@@ -10,8 +11,7 @@ struct poll_dispatcher_data {
     struct pollfd* fdarry_copy;
 }
 
-static void*
-poll_init(struct event_loop* eventLoop);
+static void* poll_init(struct event_loop* eventLoop);
 static int poll_add(struct event_loop* eventLoop, struct channel* chan);
 static int poll_del(struct event_loop* eventLoop, struct channel* chan);
 static int poll_update(struct event_loop* eventLoop, struct channel* chan);
@@ -28,8 +28,8 @@ const struct event_dispatcher poll_dispatcher = {
     poll_clear,
 };
 
-// TODO: 并不需要通过返回值返回，可以通过参数直接赋值 eventLoop->dispatcher_data = pollDispatcherData
-// TODO: 目前最多实现同时监听INIT_POLL_SIZE个fd上的事件，考虑实现fdarray的自动扩容
+// TODO: no need to return pollDispatcherData, just eventLoop->dispatcher_data = pollDispatcherData
+// TODO: currently, only support up to INIT_POOL_SIZE pollfd at a time, consider implementing automatic expansion for fdarray
 void* poll_init(struct event_loop* eventLoop)
 {
     struct poll_dispatcher_data* pollDispatcherData = malloc(sizeof(struct poll_dispatcher_data));
@@ -43,7 +43,7 @@ void* poll_init(struct event_loop* eventLoop)
     return pollDispatcherData;
 }
 
-// NOTE 重复添加会怎么样
+// NOTE: what if poll add certain fd for several times?
 int poll_add(struct event_loop* eventLoop, struct channel* chan)
 {
     struct poll_dispatcher_data* pollDispatcherData = eventLoop->event_dispatcher_data;
@@ -54,7 +54,7 @@ int poll_add(struct event_loop* eventLoop, struct channel* chan)
     if (chan->events & EVENT_WRITE)
         events |= POLLWRNORM;
 
-    // 找到第一个可用的slot
+    /* find first available slot for channel, actually may become bottleneck */
     int i = 0;
     for (i = 0; i < INIT_POLL_SIZE; i++) {
         if (pollDispatcherData->fdarry[i].fd == -1) {
@@ -64,7 +64,7 @@ int poll_add(struct event_loop* eventLoop, struct channel* chan)
         }
     }
     if (i == INIT_POLL_SIZE) {
-        printf("too many clients, just abort!\n");
+        LOG(LT_WARN, "too many clients, no slot for new client(fd = %d), just abort!", fd);
     }
     return 0;
 }
@@ -81,7 +81,7 @@ int poll_del(struct event_loop* eventLoop, struct channel* chan)
         }
     }
     if (i == INIT_POLL_SIZE) {
-        printf("poll_del cannot find fd %d\n", fd);
+        LOG(LT_WARN, "cannot find registered pollfd for fd = %d", fd);
     }
     return 0;
 }
@@ -103,7 +103,7 @@ int poll_update(struct event_loop* eventLoop, struct channel* chan)
         }
     }
     if (i == INIT_POLL_SIZE) {
-        printf("poll_update cannot find fd %d\n", fd);
+        LOG(LT_WARN, "cannot find registered pollfd for fd = %d", fd);
     }
     return 0;
 }
@@ -113,26 +113,28 @@ int poll_dispatch(struct event_loop* eventLoop, struct timeval* timeout)
     struct poll_dispatcher_data* pollDispatcherData = eventLoop->event_dispatcher_data;
     int nready = 0;
     int timewait = timeout->tv_sec * 1000;
-    if ((nready = poll(pollDispatcherData->fdarry, INIT_POLL_SIZE, timewait)) < 0) {
-        printf("poll failed!\n");
-        return;
+
+    /* NOTE: where reactor thread will be actually blocked */
+    if ((nready = poll(pollDispatcherData->fdarry, INIT_POLL_SIZE, timewait)) < 0) {    
+        LOG(LT_WARN, "%s", strerror(errno));    // error occured (EAGAIN, EINIR, EINVAL), just return for next round
+        return 0;
     }
     if (nready == 0)
-        return 0; // 指定等待时间内没有事件发生，直接返回
+        return 0; // no event happen to registered pollfds in timewait, just return
     int i = 0;
     for (i = 0; i < INIT_POLL_SIZE; i++) {
-        struct pollfd pollfd = pollDispatcherData->fdarry[i];
-        if (pollfd.fd < 0)
-            continue;             // 忽略fd=-1的pollfd
-        if (pollfd.revents > 0) { // 若该fd上有事件发生，调用fd相应channel的回调函数
-            if (pollfd.revents & POLLRDNORM) {
-                channel_event_activate(eventLoop, pollfd.fd, EVENT_READ);
+        struct pollfd* pollfd = &pollDispatcherData->fdarry[i];
+        if (pollfd->fd < 0)
+            continue;             // ignore pollfd.fd == -1 
+        if (pollfd->revents > 0) {  // event happen on this fd, excute callback function corresponding to that event
+            if (pollfd->revents & POLLRDNORM) {
+                channel_event_activate(eventLoop, pollfd->fd, EVENT_READ);
             }
-            if (pollfd.revents & POLLWRNORM) {
-                channel_event_activate(eventLoop, pollfd.fd, EVENT_WRITE);
+            if (pollfd->revents & POLLWRNORM) {
+                channel_event_activate(eventLoop, pollfd->fd, EVENT_WRITE);
             }
             if (--nready == 0)
-                break; // 如果处理完产生事件的fd，提前跳出循环，没必要遍历剩余的pollfd
+                break; // just break when events of this round get handled
         }
     }
     return 0;

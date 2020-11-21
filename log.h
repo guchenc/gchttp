@@ -19,7 +19,7 @@
 #define ENABLE_CMDLOG
 #define ENABLE_FILELOG
 
-#define LOG_FILE_NAME "gchttp.log"
+#define LOG_FILE_NAME "./logs/gchttp.log"
 
 void server_log(int level, char* file, const char* func, int line, char* fmt, ...);
 
