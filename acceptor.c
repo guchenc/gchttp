@@ -10,7 +10,7 @@ struct acceptor* acceptor_new(int type, int port)
     // TODO:only using ipv4 server address for now, supporting ipv6 server address later
     struct sockaddr_in servaddr;
     bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_addr = AF_INET;
+    servaddr.sin_addr.s_addr = AF_INET;
     servaddr.sin_port = htons(port);
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     
@@ -53,9 +53,8 @@ struct acceptor* acceptor_new(int type, int port)
         goto failed;
     }
 
-    acceptor->type = type;
-    acceptor->listen_fd = listenfd;
     acceptor->listen_port = port;
+    acceptor->listen_fd = listenfd;
     acceptor->connAccepted = 0;
 
     return acceptor;

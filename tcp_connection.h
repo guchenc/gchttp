@@ -1,8 +1,9 @@
 #ifndef TCP_CONNECTION_H
 #define TCP_CONNECTION_H
-
 #include "channel.h"
 #include "event_loop.h"
+
+struct tcp_connection;
 
 typedef int (*conn_established_call_back)(struct tcp_connection* tcpConn);
 typedef int (*conn_msg_read_call_back)(struct tcp_connection* tcpConn);
@@ -18,9 +19,9 @@ struct tcp_connection {
     struct buffer* inBuffer;  // application-level input buffer
     struct buffer* outBuffer; // application-level output buffer
 
-    conn_established_call_back connCompletedCallBack;
-    conn_msg_read_call_back msgReadCallBack;
-    conn_msg_write_call_back msgWriteCallBack;
+    conn_established_call_back connEstablishedCallBack;
+    conn_msg_read_call_back connMsgReadCallBack;
+    conn_msg_write_call_back connMsgWriteCallBack;
     conn_closed_call_back connClosedCallBack;
 
     void* data;     // for call back use: http_server
@@ -36,7 +37,7 @@ struct tcp_connection {
  *  - excute connection established callback
  */
 struct tcp_connection*
-tcp_connection_new(int connFd, struct event_loop* eventLoop,
+tcp_connection_new(int connFd, struct sockaddr* peerAddr, struct event_loop* eventLoop,
     conn_established_call_back connEstablishCallBack,
     conn_msg_read_call_back connMsgReadCallBack,
     conn_msg_write_call_back connMsgWriteCallBack,

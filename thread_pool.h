@@ -1,7 +1,8 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
-#include "event_loop.h"
 #include "event_loop_thread.h"
+
+struct event_loop;
 
 /* sub-reacotr线程池 */
 struct thread_pool {

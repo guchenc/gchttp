@@ -1,4 +1,5 @@
 #include "event_loop.h"
+#include "event_dispatcher.h"
 #include <sys/poll.h>
 
 #define INIT_POLL_SIZE 1024
@@ -9,7 +10,7 @@ struct poll_dispatcher_data {
     int realloc_copy;
     struct pollfd* fdarry;
     struct pollfd* fdarry_copy;
-}
+};
 
 static void* poll_init(struct event_loop* eventLoop);
 static int poll_add(struct event_loop* eventLoop, struct channel* chan);

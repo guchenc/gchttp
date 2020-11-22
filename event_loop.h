@@ -3,6 +3,7 @@
 #include "channel.h"
 #include "channel_map.h"
 #include "common.h"
+#include "event_dispatcher.h"
 
 #define EVENT_LOOP_RUNNING 0
 #define EVENT_LOOP_OVER 1
@@ -53,14 +54,12 @@ struct event_loop {
 
     /* 一对无名的相互连接的套接字，可用于全双共通信 */
     int socketPair[2]; 
-    const char* thread_name;
+    char* thread_name;
 };
 
-struct event_loop* event_loop_new(const char* thread_name);
+struct event_loop* event_loop_new(char* thread_name);
 
 int event_loop_run(struct event_loop* eventLoop);
-
-void event_loop_wakeup(struct event_loop* eventLoop);
 
 int event_loop_add_channel_event(struct event_loop* eventLoop, int fd, struct channel* chan);
 
@@ -68,9 +67,11 @@ int event_loop_remove_channel_event(struct event_loop* eventLoop, int fd, struct
 
 int event_loop_update_channel_event(struct event_loop* eventLoop, int fd, struct channel* chan);
 
+int event_loop_handle_pending_channel(struct event_loop* eventLoop);
+
 int event_loop_handle_pending_add(struct event_loop* eventLoop, int fd, struct channel* chan);
 
-int event_loop_handle_pending_remove(struct event_loop* eventLoop, int fd, struct channel* chan);
+int event_loop_handle_pending_del(struct event_loop* eventLoop, int fd, struct channel* chan);
 
 int event_loop_handle_pending_update(struct event_loop* eventLoop, int fd, struct channel* chan);
 

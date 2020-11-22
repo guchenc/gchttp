@@ -1,5 +1,7 @@
 #ifndef CHANNEL_MAP_H
 #define CHANNEL_MAP_H
+#include <stdlib.h>
+#include <string.h>
 
 #define CHANNELMAP_INITSIZE 32
 #define CHANNELMAP_MAXSIZE 1024
@@ -16,10 +18,10 @@ struct channel_map {
 };
 
 /* 初始化映射表，初始大小为CHANNELMAP_INITSIZE */
-struct channel_map* chanmap_init();
+struct channel_map* chanmap_new();
 
 /* 实现映射表扩容，最大为CHANNELMAP_MAXSIZE */
-int chanmap_expand(struct channel_map* chanmap, int size);
+int chanmap_expand(struct channel_map* chanmap, int slot, int msize);
 
 /* 释放映射表及保存channel堆内存 */
 void chanmap_cleanup(struct channel_map* chanmap);

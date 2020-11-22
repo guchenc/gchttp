@@ -1,8 +1,10 @@
 #ifndef EVENT_DISPATCHER_H
 #define EVENT_DISPATCHER_H
-#include "channel.h"
 #include "sys/time.h"
-#include "event_loop.h"
+
+struct event_loop;
+struct channel;
+
 /**
  * 事件分发器的抽象，可利用select，poll，epoll等I/O复用具体实现
  */

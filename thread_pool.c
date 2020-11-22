@@ -17,12 +17,12 @@ struct thread_pool* thread_pool_new(struct event_loop* mainLoop, int nthread)
     if (threadPool->threads == NULL) goto failed;
 
     for (int i = 0; i < threadPool->nthread; i++)
-        event_loop_thread_init(&threadPool[i], i);
+        event_loop_thread_init(&threadPool->threads[i], i);
 
     return threadPool;
 
-failed：
-    if (thradPool->threads != NULL) free(threadPool->threads);
+failed:
+    if (threadPool->threads != NULL) free(threadPool->threads);
     if (threadPool != NULL) free(threadPool);
     LOG(LT_WARN, "failed to created sub-reactor thread pool!");
     return NULL;

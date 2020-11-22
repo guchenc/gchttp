@@ -1,4 +1,7 @@
-#include "tcp_server.h"
+#include "server.h"
+
+static int handle_tcp_connection_established(struct server* server);
+static struct event_loop* server_select_eventloop(struct server* server);
 
 struct server*
 server_new(const char* name, int type, int port, int threadNum,
@@ -8,21 +11,26 @@ server_new(const char* name, int type, int port, int threadNum,
         conn_closed_call_back connClosedCallBack,
         void* data)
 {
-    struct server* server = malloc(sizeof(struct server));
+    struct server* server = NULL;
+    struct event_loop* eventLoop = NULL;
+    struct acceptor* acceptor = NULL;
+    struct thread_pool* threadPool = NULL;
+
+    server = malloc(sizeof(struct server));
     if (server == NULL) goto failed;
     
-    struct acceptor* acceptor = acceptor_new(type, port);
+    acceptor = acceptor_new(type, port);
     if (acceptor == NULL) goto failed;
     
-    int nameLen = strlen(name);
-    nameLen = nameLen < SERVER_NAME_MAXLEN ? nameLen : SERVER_NAME_MAXLEN;
-    const char* serverName = malloc(nameLen + 1);
+    int nameLen = strlen(name) < SERVER_NAME_MAXLEN ? nameLen : SERVER_NAME_MAXLEN;
+    char* serverName = malloc(nameLen + 1);
     strncpy(serverName, name, nameLen);
-    struct event_loop* eventLoop = event_loop_new(serverName);
+
+    eventLoop = event_loop_new(serverName);
     if (eventLoop == NULL) goto failed;
 
     /* just create thread pool struct, haven't really start thread yet */
-    struct thread_pool* threadPool = thread_pool_new(eventLoop, threadNum);
+    threadPool = thread_pool_new(eventLoop, threadNum);
     if (threadPool == NULL) goto failed;
 
     server->acceptor = acceptor;
@@ -60,13 +68,13 @@ void server_start(struct server* server)
     
     /* register channel for listening fd */
     struct acceptor* acceptor = server->acceptor;
-    struct channel* chan = channel_new(acceptor->listen_fd, EVENT_READ, handle_connection_established, NULL, server);
+    struct channel* chan = channel_new(acceptor->listen_fd, EVENT_READ, handle_tcp_connection_established, NULL, server);
     /* register EVENT_READ for acceptor->listen_fd to start accepting established client connection */
-    event_loop_add_channel_event(server->event_loop, chan->fd, chan);
+    event_loop_add_channel_event(server->eventLoop, chan->fd, chan);
 }
 
 /* only used as acceptor EVENT_READ callback */
-static int handle_connection_established(struct server* server)
+static int handle_tcp_connection_established(struct server* server)
 {
     assertNotNULL(server);
     struct acceptor* acceptor = server->acceptor;
@@ -76,7 +84,7 @@ static int handle_connection_established(struct server* server)
     struct sockaddr_in clientaddr;
     socklen_t addrlen = sizeof(clientaddr);
 
-    int clientfd = accept(acceptor->listenfd, (SA*)&clientaddr, &addrlen);
+    int clientfd = accept(acceptor->listen_fd, (SA*)&clientaddr, &addrlen);
     if (clientfd < 0) {     // may never happen ? not sure
         LOG(LT_DEBUG, "%s", strerror(errno));
         if (errno == EWOULDBLOCK || errno == EAGAIN)
@@ -91,13 +99,13 @@ static int handle_connection_established(struct server* server)
     struct event_loop* eventLoop = server_select_eventloop(server);
 
     /* local variable tcpConn is actually no need */
-    struct tcp_connection* tcpConn = tcp_connection_new(clientfd, eventLoop,
-                                                        server->connEstablishCallBack,
+    struct tcp_connection* tcpConn = tcp_connection_new(clientfd, (SA*)&clientaddr, eventLoop,
+                                                        server->connEstablishedCallBack,
                                                         server->connMsgReadCallBack,
                                                         server->connMsgWriteCallBack,
                                                         server->connClosedCallBack);
     /* for callback use, httpserver */
-    tcpConn->data = server->data;
+    /* tcpConndata = server->data; */
 
     return 0;
 }
@@ -106,10 +114,13 @@ static int handle_connection_established(struct server* server)
 static struct event_loop* server_select_eventloop(struct server* server)
 {
     assertNotNULL(server);
-    struct event_loop* selected;
+    struct event_loop* selected = NULL;
+    struct event_loop_thread* selectedThread = NULL;
     if (server->threadPool == NULL)
         selected = server->eventLoop;
-    else
-        selected = thread_pool_select_thread(server->threadPool);
+    else {
+        selectedThread = thread_pool_select_thread(server->threadPool);
+        selected = selectedThread->eventLoop;
+    }
     return selected;
 }

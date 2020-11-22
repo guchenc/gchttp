@@ -1,7 +1,11 @@
 #include "event_loop.h"
 
+static int event_loop_channel_buffer_nolock(struct event_loop* eventLoop, int fd, struct channel* chan, int type);
+static void event_loop_wakeup(struct event_loop* eventLoop);
+static int handle_wakeup(void* data);
+
 /* 由reactor线程调用一次，初始化一个event_loop */
-struct event_loop* event_loop_new(const char* thread_name)
+struct event_loop* event_loop_new(char* thread_name)
 {
     struct event_loop* eventLoop = malloc(sizeof(struct event_loop));
     if (eventLoop == NULL) goto failed;
@@ -9,11 +13,11 @@ struct event_loop* event_loop_new(const char* thread_name)
     eventLoop->status = EVENT_LOOP_OVER;
 
     // 选择一个支持I/O复用作为dispatcher实现
-#ifdef EPOLL_ENABLE
+#ifdef EPOLL_ENABLED
     eventLoop->eventDispatcher = &epoll_dispatcher;
-#elif defined POLL_ENABLE
+#elif defined POLL_ENABLED
     eventLoop->eventDispatcher = &poll_dispatcher;
-#elif defined SELECT_ENABLE
+#elif defined SELECT_ENABLED
     eventLoop->eventDispatcher = &select_dispatcher;
 #else
     eventLoop->eventDispatcher = NULL;
@@ -22,7 +26,7 @@ struct event_loop* event_loop_new(const char* thread_name)
 #endif
     eventLoop->event_dispatcher_data = eventLoop->eventDispatcher->init(eventLoop); 
 
-    eventLoop->channelMap = chanmap_init();
+    eventLoop->channelMap = chanmap_new(sizeof(struct channel));
     if (eventLoop->channelMap == NULL) goto failed;
 
     eventLoop->is_handling_pending = 0;
@@ -37,9 +41,9 @@ struct event_loop* event_loop_new(const char* thread_name)
         goto failed;
     }
 
-    struct channel* chan = channel_new(event_loop->socketpair[1], EVENT_READ, handleWakeup, NULL, eventLoop);
+    struct channel* chan = channel_new(eventLoop->socketPair[1], EVENT_READ, handle_wakeup, NULL, eventLoop);
     if (chan == NULL) goto failed;
-    event_loop_add_channel_event(eventLoop, eventLoop->socketpair[1], chan);
+    event_loop_add_channel_event(eventLoop, eventLoop->socketPair[1], chan);
 
     if (thread_name != NULL) {
         eventLoop->thread_name = thread_name;
@@ -66,6 +70,7 @@ static int event_loop_do_channel_event(struct event_loop* eventLoop, int fd, str
     } else { // eventloop不属于当前i/o reactor线程，则将对应线程唤醒，要求其立刻处理pending list
         event_loop_wakeup(eventLoop);   
     }
+    return 0;
 }
 
 static int event_loop_channel_buffer_nolock(struct event_loop* eventLoop, int fd, struct channel* chan, int type)
@@ -74,12 +79,13 @@ static int event_loop_channel_buffer_nolock(struct event_loop* eventLoop, int fd
     chanElement->type = type;
     chanElement->channel = chan;
     chanElement->next = NULL;
-    if (eventLoop->head == NULL) {
+    if (eventLoop->pending_head == NULL) {
         eventLoop->pending_head = eventLoop->pending_tail = chanElement;
     } else {
         eventLoop->pending_tail->next = chanElement;
         eventLoop->pending_tail = chanElement;
     }
+    return 0;
 }
 
 int event_loop_add_channel_event(struct event_loop* eventLoop, int fd, struct channel* chan)
@@ -120,8 +126,8 @@ int event_loop_handle_pending_channel(struct event_loop* eventLoop)
     }
 
     eventLoop->pending_head = eventLoop->pending_tail = NULL;
-    event_loop->is_handling_pending = 0;
-    pthread_mutext_unlock(&evenLoop->mutex);
+    eventLoop->is_handling_pending = 0;
+    pthread_mutex_unlock(&eventLoop->mutex);
     return 0;
 }
 
@@ -129,7 +135,7 @@ int event_loop_handle_pending_add(struct event_loop* eventLoop, int fd, struct c
 {
     struct channel_map* chanMap = eventLoop->channelMap;
     if (fd < 0) return 0;
-    if (fd >= chanMap->nentries) {
+    if (fd >= chanMap->nentry) {
         // TODO: 对channelMap进行扩容
         return 0;
     }
@@ -137,25 +143,23 @@ int event_loop_handle_pending_add(struct event_loop* eventLoop, int fd, struct c
     // 第一次创建某个fd的channel时，将其插入channelmap，否则忽略，即便channel事件可能不同
     if (chanMap->entries[fd] == NULL) {
         chanMap->entries[fd] = chan;
-        struct event_dispatcher* eventDispatcher =  eventLoop->event_dispatcher;
-        eventDispatcher->add(eventLoop, chan);
+        eventLoop->eventDispatcher->add(eventLoop, chan);
         return 1;
     }
     return 0;
 }
 
 // in i/o reactor thread
-int event_loop_handle_pending_remove(struct event_loop* eventLoop, int fd, struct channel* chan1)
+int event_loop_handle_pending_del(struct event_loop* eventLoop, int fd, struct channel* chan1)
 {
     struct channel_map* chanMap = eventLoop->channelMap;
     if (fd < 0) return 0;
-    if (fd >= chanMap->nentries) return -1;
+    if (fd >= chanMap->nentry) return -1;
 
     struct channel* chan = chanMap->entries[fd];
-    struct event_dispatcher* eventDispatcher =  eventLoop->event_dispatcher;
     if (chan == NULL) return 0;
     int ret = 0;
-    if (eventDispatcher->del(eventLoop, chan) == -1) ret = -1;
+    if (eventLoop->eventDispatcher->del(eventLoop, chan) == -1) ret = -1;
     else ret = 1;
     chanMap->entries[fd] = NULL;
     return ret;
@@ -164,10 +168,10 @@ int event_loop_handle_pending_remove(struct event_loop* eventLoop, int fd, struc
 int event_loop_handle_pending_update(struct event_loop* eventLoop, int fd, struct channel* chan)
 {
     struct channel_map* chanMap = eventLoop->channelMap;
-    if (fd < 0 || fd >= chanMap->nentries) return 0;
+    if (fd < 0 || fd >= chanMap->nentry) return 0;
     if (chanMap->entries[fd] == NULL) return -1;
-    struct event_dispatcher* eventDispatcher =  eventLoop->event_dispatcher;
-    eventDispatcher->update(eventLoop, chan);
+    eventLoop->eventDispatcher->update(eventLoop, chan);
+    return 0;
 }
 
 // dispather派发完事件之后，调用该方法通知event_loop执行对应事件的相关callback方法
@@ -175,8 +179,8 @@ int event_loop_handle_pending_update(struct event_loop* eventLoop, int fd, struc
 int channel_event_activate(struct event_loop* eventLoop, int fd, int event)
 {
     struct channel_map* chanMap = eventLoop->channelMap;
-    if (fd < 0 || fd >= chanMap->nentries) return 0;
-    struct channel* chan = chanMap[fd];
+    if (fd < 0 || fd >= chanMap->nentry) return 0;
+    struct channel* chan = chanMap->entries[fd];
     if (event & EVENT_READ)
         if (chan->eventReadCallBack != NULL) chan->eventReadCallBack(chan->data); 
 
@@ -185,43 +189,57 @@ int channel_event_activate(struct event_loop* eventLoop, int fd, int event)
     return 0;
 }
 
-/* not sure, may have problem */
+/* NOTE: not sure, may have problem */
 void event_loop_cleanup(struct event_loop* eventLoop)
 {
     if (eventLoop == NULL) return;
-    assert(pthread_mutex_trylock(eventLoop->mutex) == 0);   // make sure no thread hold this mutex
-    event_dispatcher->clear();
-    channel_map_cleanup(eventLoop->channelMap);
+    assert(pthread_mutex_trylock(&eventLoop->mutex) == 0);   // make sure no thread hold this mutex
+    eventLoop->eventDispatcher->clear(eventLoop);
+    chanmap_cleanup(eventLoop->channelMap);
     assert(eventLoop->is_handling_pending == 0);
     pthread_mutex_destroy(&eventLoop->mutex);
-    pthread_cond(&eventLoop->cond);
+    pthread_cond_destroy(&eventLoop->cond);
     close(eventLoop->socketPair[0]);
     close(eventLoop->socketPair[1]);
     if (eventLoop->thread_name != NULL) free(eventLoop->thread_name);
 }
 
-void event_loop_wakeup(struct event_loop* eventLoop)
+/**
+ * when new channel is ready to be registered, reactor thread may block on dispather->dispatch(). 
+ * in this case, main reactor thread write one byte to socketPair[0] to trigger EVENT_READ on registered socketPair[1] so that sub-reactor thread will wake up immediately instead of waking up after timeout.
+ */
+static void event_loop_wakeup(struct event_loop* eventLoop)
 {
-    
+    char c = 'a';
+    ssize_t n = write(eventLoop->socketPair[0], &c, 1);
+    if (n < 0)
+        LOG(LT_WARN, "failed to wake up sub-reacotr thread %s", eventLoop->thread_name);
 }
 
 
-int handle_wakeup(void* data)
+static int handle_wakeup(void* data)
 {
-
+    struct event_loop* eventLoop = data;
+    char c;
+    ssize_t n = read(eventLoop->socketPair[1], &c, 1);
+    if (n < 0) {
+        LOG(LT_WARN, "sub-reactor thread %s failed to wake up by reading socketpair", eventLoop->thread_name);
+        return -1;
+    }
+    LOG(LT_INFO, "sub-reactor thread %s wake up", eventLoop->thread_name);
+    return 0;
 }
 
 /* infinite loop for event dispatcher */
 int event_loop_run(struct event_loop* eventLoop)
 {
-    struct event_dispatcher* eventDispatcher = eventLoop->eventDispatcher;
-    struct timval timeout;
+    struct timeval timeout;
     timeout.tv_sec = DISPATCH_TIMEOUT_SEC;
 
     eventLoop->status = EVENT_LOOP_RUNNING;
 
     while (eventLoop->status != EVENT_LOOP_OVER) {
-        eventDispatcher->dispatch(eventLoop, &timeout);
+        eventLoop->eventDispatcher->dispatch(eventLoop, &timeout);
         event_loop_handle_pending_channel(eventLoop);
     }
     return 0;
@@ -232,7 +250,7 @@ void assertInOwnerThread(struct event_loop* eventLoop)
     assert(pthread_equal(pthread_self(), eventLoop->owner_tid) != 0);
 }
 
-int in_owner_thread(struct event_loop* eventLoop);
+int in_owner_thread(struct event_loop* eventLoop)
 {
     return pthread_equal(pthread_self(), eventLoop->owner_tid);
 }

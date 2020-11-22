@@ -1,6 +1,6 @@
 #include "channel_map.h"
 
-struct channel_map* chanmap_init(int msize) 
+struct channel_map* chanmap_new(int msize) 
 {
     int initsz = CHANNELMAP_INITSIZE;
     void** entries;
@@ -8,7 +8,7 @@ struct channel_map* chanmap_init(int msize)
     struct channel_map* chanMap = malloc(sizeof(struct channel_map));
     if (chanMap == NULL) goto failed;
 
-    entries = cmalloc(msize * initsz);
+    entries = calloc(msize, initsz);
     if (entries == NULL) goto failed;
 
     chanMap->nentry = initsz;
@@ -47,7 +47,7 @@ void chanmap_cleanup(struct channel_map* chanmap)
     if (chanmap != NULL) {
         if (chanmap->entries != NULL) {
             for (int i = 0; i < chanmap->nentry; i++) {
-                if (chanmap[i] != NULL) free(chanmap[i]);
+                if (chanmap->entries[i] != NULL) free(chanmap->entries[i]);
             }
             free(chanmap->entries);
         }

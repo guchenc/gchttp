@@ -1,8 +1,10 @@
 #include "tcp_connection.h"
 
+static void tcp_connection_set_peeraddr(struct tcp_connection* tcpConn, const struct sockaddr* peerAddr);
+
 struct tcp_connection*
 tcp_connection_new(int connFd, struct sockaddr* peerAddr, struct event_loop* eventLoop,
-    conn_established_call_back connEstablishCallBack,
+    conn_established_call_back connEstablishedCallBack,
     conn_msg_read_call_back connMsgReadCallBack,
     conn_msg_write_call_back connMsgWriteCallBack,
     conn_closed_call_back connClosedCallBack)
@@ -26,14 +28,14 @@ tcp_connection_new(int connFd, struct sockaddr* peerAddr, struct event_loop* eve
     tcpConn->outBuffer = buffer_new();
     if (tcpConn->outBuffer == NULL) goto failed;
 
-    tcpConn->connEstablishCallBack = connEstablishCallBack;
-    tcpConn->conn_msg_read_call_back = connMsgReadCallBack;
-    tcpConn->conn_msg_write_call_back = connMsgWriteCallBack;
+    tcpConn->connEstablishedCallBack = connEstablishedCallBack;
+    tcpConn->connMsgReadCallBack = connMsgReadCallBack;
+    tcpConn->connMsgWriteCallBack = connMsgWriteCallBack;
     tcpConn->connClosedCallBack = connClosedCallBack;
 
     // NOTE: execute connection established callback
-    if (tcpConn->connEstablishCallBack != NULL) {
-        tcpConn->connEstablishCallBack(tcpConn);
+    if (tcpConn->connEstablishedCallBack != NULL) {
+        tcpConn->connEstablishedCallBack(tcpConn);
     }
 
     // register EVENT_READ on connFd
@@ -75,11 +77,10 @@ static void tcp_connection_set_peeraddr(struct tcp_connection* tcpConn, const st
 
 ssize_t handle_tcp_connection_read(struct tcp_connection* tcpConn)
 {
-    struct tcp_connection* tcpConn = data;
     struct buffer* inBuffer = tcpConn->inBuffer;
     if (buffer_read_fd(inBuffer, tcpConn->channel->fd) > 0) {
         /* excute connection read callback */
-        if (tcpConn->conn_msg_read_call_back() != NULL)
+        if (tcpConn->connMsgReadCallBack != NULL)
             tcpConn->connMsgReadCallBack(tcpConn);
     } else {
         /* read EOF or error occured */
@@ -89,8 +90,6 @@ ssize_t handle_tcp_connection_read(struct tcp_connection* tcpConn)
 
 ssize_t handle_tcp_connection_write(struct tcp_connection* tcpConn)
 {
-    struct tcp_connection* tcpConn = data;
-
     struct event_loop* eventLoop = tcpConn->eventLoop;
     /* every reactor thread only handles connections for which it's responsible */
     assertInOwnerThread(eventLoop);
@@ -185,6 +184,6 @@ void tcp_connection_shutdown(struct tcp_connection* tcpConn)
 {
     if (shutdown(tcpConn->channel->fd, SHUT_WR) < 0) {
         // TODO: how to handle shutdown failure
-        LOG(LT_WARN, "failed to shutdown socket(fd = %d) %s", tcpConn->channel->fd, streror(errno));
+        LOG(LT_WARN, "failed to shutdown socket(fd = %d) %s", tcpConn->channel->fd, strerror(errno));
     }
 }

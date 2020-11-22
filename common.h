@@ -1,6 +1,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 #include "log.h"
+#include "buffer.h"
 
 #include <assert.h>
 #include <arpa/inet.h>
@@ -26,6 +27,9 @@
 #include <sys/epoll.h>
 #endif
 
+#define TCP_SERVER 0
+#define UDP_SERVER 1
+
 #define SERVER_NAME_MAXLEN 32
 #define SERVER_PORT 8080
 #define LISTENQ 1024
@@ -37,5 +41,7 @@
 typedef struct sockaddr SA;
 
 void make_nonblocking(int fd); // 将一个套接字设置为非阻塞
+
+void assertNotNULL(void* p);
 
 #endif

@@ -1,6 +1,14 @@
 #ifndef EVENT_LOOP_THREAD_H
 #define EVENT_LOOP_THREAD_H
 #include <pthread.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "log.h"
+#include "event_loop.h"
+
+struct event_loop;
 
 /* 描述一个sub-reactor线程，只负责套接字I/O处理 */
 struct event_loop_thread {
@@ -9,7 +17,7 @@ struct event_loop_thread {
     pthread_t tid;
     pthread_cond_t cond;
     pthread_mutex_t mutex;
-    const char* threadName;
+    char* threadName;
     unsigned long connHandled;
 };
 
