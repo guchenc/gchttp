@@ -134,6 +134,18 @@ ssize_t buffer_read_fd(struct buffer* buff, int fd)
     return n;
 }
 
+void buffer_show_content(struct buffer* buff)
+{
+    size_t idx = buff->readIdx;
+    size_t left = buffer_readable_size(buff);
+    printf("buffer: [");
+    while (left > 0) {
+        printf("%c", buff->data[idx++]);
+        left--;
+    }
+    printf("]\n");
+}
+
 void buffer_cleanup(struct buffer* buff)
 {
     if (buff->data != NULL)

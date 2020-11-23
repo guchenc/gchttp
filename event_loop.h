@@ -5,6 +5,8 @@
 #include "common.h"
 #include "event_dispatcher.h"
 
+#define DEFAULT_MAIN_REACTOR_NAME "main-reactor"
+
 #define EVENT_LOOP_RUNNING 0
 #define EVENT_LOOP_OVER 1
 
@@ -57,6 +59,7 @@ struct event_loop {
     char* thread_name;
 };
 
+/* only called once by every reactor thread, create and init an event_loop */
 struct event_loop* event_loop_new(char* thread_name);
 
 int event_loop_run(struct event_loop* eventLoop);

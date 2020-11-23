@@ -1,6 +1,10 @@
 #ifndef BUFFER_H
 #define BUFFER_H
-#include "common.h"
+#include <stdlib.h>
+#include "log.h"
+#include <string.h>
+#include <sys/uio.h>
+#include <assert.h>
 
 #define INIT_BUFFER_SIZE (1 << 16)  // 64kb
 #define MAX_BUFFER_SIZE
@@ -57,6 +61,9 @@ char buffer_read_char(struct buffer* buff);
 
 /* 在缓冲区中查询CRLF位置 */
 char* buffer_find_CRLF(struct buffer* buff);
+
+/* show content in buffer */
+void buffer_show_content(struct buffer* buff);
 
 /* 释放堆空间 */
 void buffer_cleanup(struct buffer* buff);

@@ -34,14 +34,23 @@ const struct event_dispatcher poll_dispatcher = {
 void* poll_init(struct event_loop* eventLoop)
 {
     struct poll_dispatcher_data* pollDispatcherData = malloc(sizeof(struct poll_dispatcher_data));
+    if (pollDispatcherData == NULL) goto failed;
     pollDispatcherData->fdarry = malloc(sizeof(struct pollfd) * INIT_POLL_SIZE);
+    if (pollDispatcherData->fdarry == NULL) goto failed;
+
     for (int i = 0; i < INIT_POLL_SIZE; i++)
         pollDispatcherData->fdarry[i].fd = -1;
     pollDispatcherData->event_count = 0;
     pollDispatcherData->nfds = 0;
     pollDispatcherData->realloc_copy = 0;
     pollDispatcherData->fdarry_copy = NULL;
+
     return pollDispatcherData;
+
+failed:
+    if (pollDispatcherData->fdarry != NULL) free(pollDispatcherData->fdarry);
+    if (pollDispatcherData != NULL) free(pollDispatcherData);
+    return NULL;
 }
 
 // NOTE: what if poll add certain fd for several times?
@@ -122,6 +131,9 @@ int poll_dispatch(struct event_loop* eventLoop, struct timeval* timeout)
     }
     if (nready == 0)
         return 0; // no event happen to registered pollfds in timewait, just return
+
+    LOG(LT_DEBUG, "%s poll returned, nready = %d\n", eventLoop->thread_name, nready);
+
     int i = 0;
     for (i = 0; i < INIT_POLL_SIZE; i++) {
         struct pollfd* pollfd = &pollDispatcherData->fdarry[i];

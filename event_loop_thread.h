@@ -8,6 +8,8 @@
 #include "log.h"
 #include "event_loop.h"
 
+#define SUB_REACTOR_PREFIX "sub-reactor-"
+
 struct event_loop;
 
 /* 描述一个sub-reactor线程，只负责套接字I/O处理 */

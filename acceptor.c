@@ -17,10 +17,10 @@ struct acceptor* acceptor_new(int type, int port)
     int listenfd = -1;
     if (type == TCP_SERVER) {
         listenfd = socket(AF_INET, SOCK_STREAM, 0);
-        LOG(LT_DEBUG, "using tcp acceptor, listen fd = %d", listenfd);
+        LOG(LT_INFO, "using tcp acceptor, listen fd = %d", listenfd);
     } else if (type == UDP_SERVER) {
         listenfd = socket(AF_INET, SOCK_DGRAM, 0);
-        LOG(LT_DEBUG, "using udp acceptor, listen fd = %d", listenfd);
+        LOG(LT_INFO, "using udp acceptor, listen fd = %d", listenfd);
     } else {
         LOG(LT_FATAL_ERROR, "unknown server type %d", type);
         goto failed;
@@ -30,10 +30,10 @@ struct acceptor* acceptor_new(int type, int port)
         goto failed;
     }
 
-    // 设置非阻塞监听套接字
+    /* set listening socket to non-blocking */
     make_nonblocking(listenfd);
 
-    // 设置地址复用，这样即便服务器主动关闭，处于TIME_WAIT状态，仍然可以重新使用端口号，快速重启
+    /* set SO_REUSEADDR on listening socket so that server can quickly restart by resuing SERVER_PORT even if it's in TIME_WAIT state after actively close */
     int on = 1;
     ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
     if (ret < 0) {

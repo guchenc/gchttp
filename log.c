@@ -15,6 +15,10 @@ void server_log(int level, char* file, const char* func, int line, char* fmt, ..
     if (level < LT_DEBUG || level > LT_FATAL_ERROR)
         return;
     // TODO: 只输出等级大于等于当前log_level的日志
+#ifndef DEBUG
+    if (level == LT_DEBUG) return;
+#endif
+
     time_t now_time;
     struct tm* time_info = NULL;
     char t_str[40];
@@ -27,7 +31,7 @@ void server_log(int level, char* file, const char* func, int line, char* fmt, ..
     strftime(t_str, 40, "%Y-%m-%d %H:%M:%S", time_info);
     vsprintf(msg_buff, fmt, ap);
 #ifdef ENABLE_CMDLOG
-        printf("[%5s] %s in %s %s:%-4d %s \n", LOG_LEVEL_STRS[level], t_str, file, func, line, msg_buff);
+        printf("[%5s] %s in %s %s:%-4d %s\n", LOG_LEVEL_STRS[level], t_str, file, func, line, msg_buff);
 #endif
 #ifdef ENABLE_FILELOG
     if (log_file == NULL) {
@@ -38,7 +42,7 @@ void server_log(int level, char* file, const char* func, int line, char* fmt, ..
         }
     }
     /* fprintf(log_file, "[%5s] %s %s in %s:%d\n", LOG_LEVEL_STRS[level], t_str, msg_buff, file, line); */
-    fprintf(log_file, "[%5s] %s in %s %s:%-4d %s \n", LOG_LEVEL_STRS[level], t_str, file, func, line, msg_buff);
+    fprintf(log_file, "[%5s] %s in %s %s:%-4d %s\n", LOG_LEVEL_STRS[level], t_str, file, func, line, msg_buff);
 #endif
     va_end(ap);
 }

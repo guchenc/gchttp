@@ -4,7 +4,6 @@ static int event_loop_channel_buffer_nolock(struct event_loop* eventLoop, int fd
 static void event_loop_wakeup(struct event_loop* eventLoop);
 static int handle_wakeup(void* data);
 
-/* 由reactor线程调用一次，初始化一个event_loop */
 struct event_loop* event_loop_new(char* thread_name)
 {
     struct event_loop* eventLoop = malloc(sizeof(struct event_loop));
@@ -12,7 +11,7 @@ struct event_loop* event_loop_new(char* thread_name)
 
     eventLoop->status = EVENT_LOOP_OVER;
 
-    // 选择一个支持I/O复用作为dispatcher实现
+    /* select one supported I/O multiplexing as implementation of event dispatcher */
 #ifdef EPOLL_ENABLED
     eventLoop->eventDispatcher = &epoll_dispatcher;
 #elif defined POLL_ENABLED
@@ -25,6 +24,7 @@ struct event_loop* event_loop_new(char* thread_name)
     goto failed;
 #endif
     eventLoop->event_dispatcher_data = eventLoop->eventDispatcher->init(eventLoop); 
+    if (eventLoop->event_dispatcher_data == NULL) goto failed;
 
     eventLoop->channelMap = chanmap_new(sizeof(struct channel));
     if (eventLoop->channelMap == NULL) goto failed;
@@ -48,7 +48,7 @@ struct event_loop* event_loop_new(char* thread_name)
     if (thread_name != NULL) {
         eventLoop->thread_name = thread_name;
     } else {
-        eventLoop->thread_name = "Reactor main-thread";
+        eventLoop->thread_name = DEFAULT_MAIN_REACTOR_NAME;
     }
 
     return eventLoop;
@@ -60,6 +60,7 @@ failed:
 
 static int event_loop_do_channel_event(struct event_loop* eventLoop, int fd, struct channel* chan, int type)
 {
+    /* must lock eventLoop, because main-reactor thread and the sub-reacotor thread it belongs to may access it at same time */
     pthread_mutex_lock(&eventLoop->mutex);
     event_loop_channel_buffer_nolock(eventLoop, fd, chan, type);
     pthread_mutex_unlock(&eventLoop->mutex);
@@ -67,7 +68,8 @@ static int event_loop_do_channel_event(struct event_loop* eventLoop, int fd, str
     /* serial lock-free */
     if (in_owner_thread(eventLoop)) {
         event_loop_handle_pending_channel(eventLoop);
-    } else { // eventloop不属于当前i/o reactor线程，则将对应线程唤醒，要求其立刻处理pending list
+    } else {
+        /* eventLoop doesn't belong to cur thread, wake up corresponding thread so as to update registered events immediately */
         event_loop_wakeup(eventLoop);   
     }
     return 0;
@@ -216,7 +218,6 @@ static void event_loop_wakeup(struct event_loop* eventLoop)
         LOG(LT_WARN, "failed to wake up sub-reacotr thread %s", eventLoop->thread_name);
 }
 
-
 static int handle_wakeup(void* data)
 {
     struct event_loop* eventLoop = data;
@@ -226,7 +227,7 @@ static int handle_wakeup(void* data)
         LOG(LT_WARN, "sub-reactor thread %s failed to wake up by reading socketpair", eventLoop->thread_name);
         return -1;
     }
-    LOG(LT_INFO, "sub-reactor thread %s wake up", eventLoop->thread_name);
+    LOG(LT_DEBUG, "thread %s wakes up", eventLoop->thread_name);
     return 0;
 }
 
@@ -238,7 +239,9 @@ int event_loop_run(struct event_loop* eventLoop)
 
     eventLoop->status = EVENT_LOOP_RUNNING;
 
+    LOG(LT_INFO, "%s start event dispather...", eventLoop->thread_name);
     while (eventLoop->status != EVENT_LOOP_OVER) {
+        LOG(LT_DEBUG, "%s begin event dispatching ...", eventLoop->thread_name);
         eventLoop->eventDispatcher->dispatch(eventLoop, &timeout);
         event_loop_handle_pending_channel(eventLoop);
     }

@@ -1,6 +1,6 @@
 #include "event_loop_thread.h"
 
-/* sub-reactor线程：初始化event_loop之后进入事件循环 */
+/* sub-reactor thread routine, initialize and start event loop */
 static void* event_loop_thread_routine(void* arg)
 {
     struct event_loop_thread* eventLoopThread = (struct event_loop_thread*)arg;
@@ -11,23 +11,26 @@ static void* event_loop_thread_routine(void* arg)
         LOG(LT_WARN, "failed to initialize %s!", eventLoopThread->threadName);
         return NULL;
     }
+    eventLoopThread->eventLoop = eventLoop;
     pthread_mutex_unlock(&eventLoopThread->mutex);
     pthread_cond_signal(&eventLoopThread->cond);
 
-    LOG(LT_INFO, "%s initialized successfully!", eventLoopThread->threadName);
+    LOG(LT_INFO, "%s initialized", eventLoopThread->threadName);
 
     event_loop_run(eventLoopThread->eventLoop);
+    return NULL;
 }
 
 void event_loop_thread_init(struct event_loop_thread* eventLoopThread, int id)
 {
     if (eventLoopThread == NULL) return;
+    /* NOTE: event_loop have not been created */
     eventLoopThread->eventLoop = NULL;
     eventLoopThread->tid = 0; // actually no need, but just do it
     pthread_mutex_init(&eventLoopThread->mutex, NULL);
     pthread_cond_init(&eventLoopThread->cond, NULL);
     char* name = malloc(32);
-    sprintf(name, "Sub-Reactor-%d", id);
+    sprintf(name, "%s%d", SUB_REACTOR_PREFIX, id);
     eventLoopThread->threadName = name;
     eventLoopThread->connHandled = 0;
 }
@@ -40,12 +43,11 @@ void event_loop_thread_run(struct event_loop_thread* eventLoopThread)
 
     pthread_mutex_lock(&eventLoopThread->mutex);
     while (eventLoopThread->eventLoop == NULL) { 
-        // waiting for created thread to be successfully initialized.
+        /* waiting for created thread to be successfully initialized. */
+        // TODO: handling thread creation failure
         pthread_cond_wait(&eventLoopThread->cond, &eventLoopThread->mutex);
     }
     pthread_mutex_unlock(&eventLoopThread->mutex);
-
-    LOG(LT_INFO, "%s start successfully!", eventLoopThread->threadName);
 }
 
 void event_loop_thread_cleanup(struct event_loop_thread* eventLoopThread)

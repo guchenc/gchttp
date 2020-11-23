@@ -6,20 +6,6 @@
 #include "thread_pool.h"
 #include "tcp_connection.h"
 
-struct tcp_connection;
-
-/* typedef int (*conn_established_call_back)(struct tcp_connection* tcpConn);
- * typedef int (*conn_msg_read_call_back)(struct tcp_connection* tcpConn);
- * typedef int (*conn_msg_write_call_back)(struct tcp_connection* tcpConn);
- * typedef int (*conn_closed_call_back)(struct tcp_connection* tcpConn); */
-
-extern struct tcp_connection*
-tcp_connection_new(int connFd, struct sockaddr* peerAddr, struct event_loop* eventLoop,
-        conn_established_call_back connEstablishCallBack,
-        conn_msg_read_call_back connMsgReadCallBack,
-        conn_msg_write_call_back connMsgWriteCallBack,
-        conn_closed_call_back connClosedCallBack);
-
 /* server abstration */
 struct server {
     /* server type, 0/1 for tcp/udp server */
@@ -49,7 +35,7 @@ server_new(const char* name, int type, int port, int threadNum,
         conn_closed_call_back connClosedCallBack,
         void* data);
 
-/* start a server */
-void server_start(struct server* server);
+/* start a server by registering EVENT_READ on listening fd */
+void server_run(struct server* server);
 
 #endif

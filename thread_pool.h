@@ -4,30 +4,30 @@
 
 struct event_loop;
 
-/* sub-reacotr线程池 */
+/* sub-reactor thread pool */
 struct thread_pool {
     struct event_loop* main_loop;
     int started;
-    /* 处理下一个新连接的线程索引 */
+    /* next sub-reactor thread idx to select */
     int next;
     struct event_loop_thread* threads;
     int nthread;
 };
 
 /**
- * 创建并初始化一个sub-reactor线程池
+ * create and initialize a thread pool
  */
 struct thread_pool* thread_pool_new(struct event_loop* mainLoop, int nthread);
 
 /**
- * 启动线程池中的sub-reactor线程
- * 由main-reactor线程调用
+ * create and run sub-reactor thread in thread pool
+ * only called by main-reactor thread
  */
 void thread_pool_run(struct thread_pool* threadPool);
 
 /*
- * 从线程池中取一个sub-reactor
- * TODO: 现为轮询，之后根据sub-reactor当前处理的连接数动态选择
+ * select a sub-reactor thread from thread pool
+ * TODO: now polling, implement dynamic selection according to current connection count
  */
 struct event_loop_thread* thread_pool_select_thread(struct thread_pool* threadPool);
 
