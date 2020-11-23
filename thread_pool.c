@@ -38,6 +38,7 @@ void thread_pool_run(struct thread_pool* threadPool)
     for (int i = 0; i < nthread; i++)
         event_loop_thread_run(&threadPool->threads[i]);
     threadPool->started = 1;
+    LOG(LT_INFO, "thread pool run successfully!");
 }
 
 struct event_loop_thread* thread_pool_select_thread(struct thread_pool* threadPool)

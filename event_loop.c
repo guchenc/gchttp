@@ -239,7 +239,7 @@ int event_loop_run(struct event_loop* eventLoop)
 
     eventLoop->status = EVENT_LOOP_RUNNING;
 
-    LOG(LT_INFO, "%s start event dispather...", eventLoop->thread_name);
+    LOG(LT_INFO, "%s start event looping ...", eventLoop->thread_name);
     while (eventLoop->status != EVENT_LOOP_OVER) {
         LOG(LT_DEBUG, "%s begin event dispatching ...", eventLoop->thread_name);
         eventLoop->eventDispatcher->dispatch(eventLoop, &timeout);

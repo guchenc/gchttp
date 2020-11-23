@@ -41,9 +41,11 @@ server_new(const char* name, int type, int port, int threadNum,
 
     /* just create thread_pool struct, have not really create thread yet */
     threadPool = thread_pool_new(eventLoop, threadNum);
-    if (threadPool == NULL) goto failed;
-
-    LOG(LT_INFO, "%s thread pool initialized", name);
+    if (threadNum > 0 && threadPool == NULL) goto failed;
+    if (threadNum == 0)
+        LOG(LT_INFO, "%s being only i/o reactor thread", name);
+    else
+        LOG(LT_INFO, "%s thread pool(%d) initialized", name, threadNum);
 
     server->acceptor = acceptor;
     server->eventLoop = eventLoop;
@@ -77,7 +79,6 @@ void server_run(struct server* server)
 
     // NOTE: server->threadPool may be NULL if threadNum = 0, thread_pool_run do nothing in this case
     thread_pool_run(server->threadPool);
-    LOG(LT_INFO, "thread pool run successfully!");
     
     /* register channel for listening fd */
     struct acceptor* acceptor = server->acceptor;
