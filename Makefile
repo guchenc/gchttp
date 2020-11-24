@@ -30,7 +30,7 @@ TARGET := SERVER
 # compiler, linker, lib, paramters, etc.
 CC := gcc
 LD := gcc
-DEFINES := -DPOLL_ENABLED
+DEFINES := -DSELECT_ENABLED
 INCLUDE := -I.
 CFLAGS := -g -Wall -O0 $(DEFINES) $(INCLUDE)
 LDFLAGS :=
@@ -65,6 +65,10 @@ event_loop.o: channel.h channel_map.h common.h event_dispatcher.h
 poll_dispatcher.o:
 	@echo "compiling poll_dispatcher ..."
 	$(CC) $(CFLAGS) -c dispathcer/poll_dispatcher.c
+
+select_dispatcher.o:
+	@echo "compiling select_dispatcher ..."
+	$(CC) $(CFLAGS) -c dispathcer/select_dispatcher.c
 
 thread_pool.o: event_loop_thread.h
 	@echo "compiling thread_pool ..."

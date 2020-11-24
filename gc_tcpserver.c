@@ -15,7 +15,7 @@ int onClientMsgRecieved(struct tcp_connection* tcpConn)
     for (int i = 0; i < size; i++) {
         buffer_append_char(output, buffer_read_char(inBuffer));
     }
-    buffer_show_content(output);
+    /* buffer_show_content(output); */
     tcp_connection_send_buffer(tcpConn, output);
     return 0;
 }
@@ -35,12 +35,15 @@ int onClientDisconnected(struct tcp_connection* tcpConn)
 
 int main(int argc, char** argv)
 {
-    if (argc < 2) {
-        printf("usage: ./gc_tcpserver <PORT>\n");
+    if (argc < 3) {
+        printf("usage: ./gc_tcpserver <PORT> <nthread>\n");
         return -1;
     }
-    
-    struct server* tcpServer = server_new("main-reactor", TCP_SERVER, atoi(argv[1]), 0,
+    if (atoi(argv[2]) > 10) {
+        printf("too many threads!\n");
+        return -1;
+    }
+    struct server* tcpServer = server_new("main-reactor", TCP_SERVER, atoi(argv[1]), atoi(argv[2]),
             onClientConnected, onClientMsgRecieved, onClientMsgSent, onClientDisconnected, NULL);
     LOG(LT_INFO, "server initialized successfully, main thread: %s", tcpServer->eventLoop->thread_name);
     server_run(tcpServer);

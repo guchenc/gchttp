@@ -25,6 +25,7 @@ struct event_loop* event_loop_new(char* thread_name)
 #endif
     eventLoop->event_dispatcher_data = eventLoop->eventDispatcher->init(eventLoop); 
     if (eventLoop->event_dispatcher_data == NULL) goto failed;
+    LOG(LT_INFO, "using %s as event dispatcher", eventLoop->eventDispatcher->name);
 
     eventLoop->channelMap = chanmap_new(sizeof(struct channel));
     if (eventLoop->channelMap == NULL) goto failed;
