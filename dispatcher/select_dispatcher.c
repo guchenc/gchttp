@@ -98,7 +98,6 @@ int select_update(struct event_loop* eventLoop, struct channel* chan)
 int select_dispatch(struct event_loop* eventLoop, struct timeval* timeout)
 {
     struct select_dispatcher_data* selectDispatcherData = eventLoop->event_dispatcher_data;
-    int timewait= timeout->tv_sec * 1000;
     int nready = 0;
     int maxfd = selectDispatcherData->maxfd;
     fd_set ready_rset = selectDispatcherData->rset;
